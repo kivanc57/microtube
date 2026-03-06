@@ -28,7 +28,6 @@ require_env REGISTRY_PASSWORD
 REGISTRY_APP_TAG="${APP_TAG}"
 TARGET_IMAGE="${REGISTRY_URL}/${REGISTRY_APP_TAG}"
 
-
 # check & install necessary dependencies
 log "Checking dependencies..."
 for dep in "${DEPENDENCIES[@]}"; do
