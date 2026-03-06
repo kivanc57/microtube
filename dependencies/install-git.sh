@@ -16,6 +16,7 @@ git config --global pull.ff only
 git config --global pull.rebase true
 git config --global rebase.autoStash true
 git config --global push.autoSetupRemote true
+git config --global core.editor "vim"
 
 # generate git hosting
 ssh-keygen -t ed25519 -C "${EMAIL}"

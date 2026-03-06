@@ -12,7 +12,7 @@ if (!process.env.PORT) {
 //
 // Extracts the PORT environment variable.
 //
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
 const app = express();
 

@@ -4,8 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
-export PORT=3000
-PROJECT_NAME="microtube"
+APP_TAG="microtube:latest"
+REGISTRY_APP_TAG="${APP_TAG}"
 DEPENDENCIES=(git docker nvm)
 
 source ".env"
@@ -16,8 +16,11 @@ PORT="${PORT:-3000}"
 : "${REGISTRY_USERNAME:?REGISTRY_USERNAME not set}"
 : "${REGISTRY_PASSWORD:?REGISTRY_PASSWORD not set}"
 
+# set logger func
+log() { printf '\n[%s] %s\n' "$(date -Is)" "$*"; }
+
 # check & install necessary dependencies
-echo "=== checking dependencies ==="
+log "=== checking dependencies ==="
 for dep in "${DEPENDENCIES[@]}"; do
 	install_if_missing "$dep"
 done
