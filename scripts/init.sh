@@ -1,78 +1,52 @@
 #!/bin/bash
 set -euo pipefail
 
+# script constants
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 
-APP_TAG="microtube:latest"
-REGISTRY_APP_TAG="${APP_TAG}"
-DEPENDENCIES=(git docker nvm)
-
+# source necessary files
 source "${SCRIPT_DIR}/../.env"
-source "${SCRIPT_DIR}/install/install-utils.sh"
+source "${SCRIPT_DIR}/utils.sh"
+source "${SCRIPT_DIR}/docker.sh"
 
+# app-specific constants
+APP_NAME="microtube"
+APP_TAG="${APP_NAME}:latest"
+DEPENDENCIES=(git docker nvm)
+DOCKERFILE_PATH="${SCRIPT_DIR}/../Dockerfile"
+BUILD_CONTEXT="${SCRIPT_DIR}/.."
 PORT="${PORT:-3000}"
-: "${REGISTRY_URL:?REGISTRY_URL not set}"
-: "${REGISTRY_USERNAME:?REGISTRY_USERNAME not set}"
-: "${REGISTRY_PASSWORD:?REGISTRY_PASSWORD not set}"
 
-# set logger func
-log() { printf '\n[%s] %s\n' "$(date -Is)" "$*"; }
+# check environment variables
+log "Checking environtment variables..."
+require_env REGISTRY_URL
+require_env REGISTRY_USERNAME
+require_env REGISTRY_PASSWORD
 
-# login Microsoft Azure registry
-if ! docker login "${REGISTRY_URL}" --username "${REGISTRY_USERNAME}" --password "${REGISTRY_PASSWORD}"; then
-	log "[FAILED]: logging in Microsoft Azure registry"
-	exit 1
-else
-	log "[SUCCESS]: logging in Microsoft Azure registry"
-fi
+# registry specific constants
+REGISTRY_APP_TAG="${APP_TAG}"
+TARGET_IMAGE="${REGISTRY_URL}/${REGISTRY_APP_TAG}"
+
 
 # check & install necessary dependencies
-log "=== checking dependencies ==="
+log "Checking dependencies..."
 for dep in "${DEPENDENCIES[@]}"; do
 	install_if_missing "$dep"
 done
 
-# init project: build, tag and push to Microsoft Azure registry
-if ! docker build -t ${APP_TAG} -f ../Dockerfile ..; then
-	log "[FAILED]: building Docker image"
-	exit 1
-else
-	log "[SUCCESS] building Docker image"
-	
-	if ! docker tag "${APP_TAG}" "${REGISTRY_URL}"/"${REGISTRY_APP_TAG}"; then
-		log "[FAILED]: tagging Docker image"
-		exit 1
-	else
-		log "[SUCCESS]: tagging Docker image"
+# main functions
+run_on_local(){
+	docker_build_image  "${APP_TAG}" "${DOCKERFILE_PATH}" "${BUILD_CONTEXT}"
+	docker_run_image "${APP_NAME}" "${APP_TAG}" "${PORT}" "${PORT}"
 
-		if ! docker push "${REGISTRY_URL}"/"${REGISTRY_APP_TAG}"; then
-			log "[FAILED]: pushing Docker image to Microsoft Azure registry on ${REGISTRY_URL}"
-			exit 1
-		else
-			log "[SUCCESS] pushing Docker image to Microsoft Azure registry on ${REGISTRY_URL}"
+}
 
-			if ! docker run -d -p "${PORT}:${PORT}" -e PORT="${PORT}" "${REGISTRY_URL}"/"${REGISTRY_APP_TAG}"; then
-				log "[FAILED]: running Docker image from Microsoft Registry on ${REGISTRY_URL} on PORT=${PORT}"
-				exit 1
-			else
-				log "[SUCCESS]: running Docker image from Microsoft Registry on ${REGISTRY_URL} on PORT=${PORT}"
-			fi
-		fi
-	fi
-fi
-
-## if you want to  build, run Docker image locally, do this instead:
-#if ! docker build -t ${APP_TAG} -f ../Dockerfile ..; then
-#        log "[FAILED]: building Docker image"
-#        exit 1
-#else
-#        log "[SUCCESS] building Docker image"
-#
-#	if ! docker run -d -p "${PORT}":"${PORT}" -e PORT="${PORT}" -t "${APP_TAG}"; then
-#		log "[FAILED]: running Docker container on PORT=${PORT}"
-#		exit 1
-#	else
-#		log "[SUCCESS]: running Docker container on PORT=${PORT}"
-#fi
+run_on_remote(){
+	docker_login_registry "${REGISTRY_URL}" "${REGISTRY_USERNAME}" "${REGISTRY_PASSWORD}"
+	docker_build_image  "${APP_TAG}" "${DOCKERFILE_PATH}" "${BUILD_CONTEXT}"
+	docker_tag_image "${APP_TAG}" "${TARGET_IMAGE}"
+	docker_push_image "${TARGET_IMAGE}"
+	docker_run_image "${APP_NAME}" "${TARGET_IMAGE}" "${PORT}" "${PORT}"
+}
 
