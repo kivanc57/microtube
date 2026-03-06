@@ -8,7 +8,13 @@ export PORT=3000
 PROJECT_NAME="microtube"
 DEPENDENCIES=(git docker nvm)
 
+source ".env"
 source "${SCRIPT_DIR}/dependencies/install-utils.sh"
+
+PORT="${PORT:-3000}"
+: "${REGISTRY_URL:?REGISTRY_URL not set}"
+: "${REGISTRY_USERNAME:?REGISTRY_USERNAME not set}"
+: "${REGISTRY_PASSWORD:?REGISTRY_PASSWORD not set}"
 
 # check & install necessary dependencies
 echo "=== checking dependencies ==="
