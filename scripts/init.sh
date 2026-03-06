@@ -8,8 +8,8 @@ APP_TAG="microtube:latest"
 REGISTRY_APP_TAG="${APP_TAG}"
 DEPENDENCIES=(git docker nvm)
 
-source ".env"
-source "${SCRIPT_DIR}/dependencies/install-utils.sh"
+source "${SCRIPT_DIR}/../.env"
+source "${SCRIPT_DIR}/install/install-utils.sh"
 
 PORT="${PORT:-3000}"
 : "${REGISTRY_URL:?REGISTRY_URL not set}"
