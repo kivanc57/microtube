@@ -1,5 +1,5 @@
 {
-  "name": "video-streaming",
+  "name": "azure-storage",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -12,9 +12,9 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@azure/storage-blob": "^12.31.0",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "mongodb": "^7.1.0"
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
