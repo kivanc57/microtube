@@ -1,50 +1,43 @@
 const express = require("express");
 const fs = require("fs");
-const http = require("http");
+const amqp = require('amqplib');
 
 if (!process.env.PORT) {
     throw new Error("Please specify the port number for the HTTP server with the environment variable PORT.");
 }
 
-const PORT = process.env.PORT;
-
-//
-// Send the "viewed" to the history microservice.
-//
-function sendViewedMessage(videoPath) {
-    const postOptions = { // Options to the HTTP POST request.
-        method: "POST", // Sets the request method as POST.
-        headers: {
-            "Content-Type": "application/json", // Sets the content type for the request's body.
-        },
-    };
-
-    const requestBody = { // Body of the HTTP POST request.
-        videoPath: videoPath 
-    };
-
-    const req = http.request( // Send the "viewed" message to the history microservice.
-        "http://history/viewed",
-        postOptions
-    );
-
-    req.on("close", () => {
-        console.log("Sent 'viewed' message to history microservice.");
-    });
-
-    req.on("error", (err) => {
-        console.error("Failed to send 'viewed' message!");
-        console.error(err && err.stack || err);
-    });
-
-    req.write(JSON.stringify(requestBody)); // Write the body to the request.
-    req.end(); // End the request.
+if (!process.env.RABBIT) {
+    throw new Error("Please specify the name of the RabbitMQ host using environment variable RABBIT");
 }
+
+const PORT = process.env.PORT;
+const RABBIT = process.env.RABBIT;
 
 //
 // Application entry point.
 //
 async function main() {
+	
+    console.log(`Connecting to RabbitMQ server at ${RABBIT}.`);
+
+    const messagingConnection = await amqp.connect(RABBIT); // Connects to the RabbitMQ server.
+    
+    console.log("Connected to RabbitMQ.");
+
+    const messageChannel = await messagingConnection.createChannel(); // Creates a RabbitMQ messaging channel.
+
+	await messageChannel.assertExchange("viewed", "fanout"); // Asserts that we have a "viewed" exchange.
+
+    //
+    // Broadcasts the "viewed" message to other microservices.
+    //
+	function broadcastViewedMessage(messageChannel, videoPath) {
+	    console.log(`Publishing message on "viewed" exchange.`);
+	        
+	    const msg = { videoPath: videoPath };
+	    const jsonMsg = JSON.stringify(msg);
+	    messageChannel.publish("viewed", "", Buffer.from(jsonMsg)); // Publishes message to the "viewed" exchange.
+	}
 
     const app = express();
 
@@ -60,7 +53,7 @@ async function main() {
     
         fs.createReadStream(videoPath).pipe(res);
 
-        sendViewedMessage(videoPath); // Sends the "viewed" message to indicate this video has been watched.
+        broadcastViewedMessage(messageChannel, videoPath); // Sends the "viewed" message to indicate this video has been watched.
     });
 
     app.listen(PORT, () => {

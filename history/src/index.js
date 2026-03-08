@@ -1,5 +1,6 @@
 const express = require("express");
 const mongodb = require("mongodb");
+const amqp = require('amqplib');
 
 if (!process.env.PORT) {
     throw new Error("Please specify the port number for the HTTP server with the environment variable PORT.");
@@ -13,9 +14,14 @@ if (!process.env.DBNAME) {
     throw new Error("Please specify the name of the database using environment variable DBNAME");
 }
 
+if (!process.env.RABBIT) {
+    throw new Error("Please specify the name of the RabbitMQ host using environment variable RABBIT");
+}
+
 const PORT = process.env.PORT;
 const DBHOST = process.env.DBHOST;
 const DBNAME = process.env.DBNAME;
+const RABBIT = process.env.RABBIT;
 
 //
 // Application entry point.
@@ -39,20 +45,53 @@ async function main() {
     //
     const db  = client.db(DBNAME);
 
-	//
+    //
     // Gets the collection for storing video viewing history.
     //
     const historyCollection = db.collection("history");
+    
+    //
+    // Connects to the RabbitMQ server.
+    //
+    const messagingConnection = await amqp.connect(RABBIT); 
+
+    console.log("Connected to RabbitMQ.");
 
     //
-    // Handles HTTP POST request to /viewed.
+    // Creates a RabbitMQ messaging channel.
     //
-    app.post("/viewed", async (req, res) => { // Handle the "viewed" message via HTTP POST request.
-        const videoPath = req.body.videoPath; // Read JSON body from HTTP request.
-        await historyCollection.insertOne({ videoPath: videoPath }) // Record the "view" in the database.
+    const messageChannel = await messagingConnection.createChannel(); 
 
-        console.log(`Added video ${videoPath} to history.`);
-        res.sendStatus(200);
+    //
+    // Asserts that we have a "viewed" exchange.
+    //
+    await messageChannel.assertExchange("viewed", "fanout"); 
+
+	//
+	// Creates an anonyous queue.
+	//
+	const { queue } = await messageChannel.assertQueue("", { exclusive: true }); 
+
+    console.log(`Created queue ${queue}, binding it to "viewed" exchange.`);
+    
+    //
+    // Binds the queue to the exchange.
+    //
+    await messageChannel.bindQueue(queue, "viewed", ""); 
+
+    //
+    // Start receiving messages from the anonymous queue.
+    //
+    await messageChannel.consume(queue, async (msg)=> {
+        console.log("Received a 'viewed' message");
+
+        const parsedMsg = JSON.parse(msg.content.toString()); // Parse the JSON message.
+        
+        await historyCollection.insertOne({ videoPath: parsedMsg.videoPath }); // Record the "view" in the database.
+
+        console.log("Acknowledging message was handled.");
+                
+        messageChannel.ack(msg); // If there is no error, acknowledge the message.
     });
 
     //
@@ -61,7 +100,7 @@ async function main() {
     app.get("/history", async (req, res) => {
         const skip = parseInt(req.query.skip);
         const limit = parseInt(req.query.limit);
-        const history = await historyCollection.find()
+        const history = await videosCollection.find()
             .skip(skip)
             .limit(limit)
             .toArray();

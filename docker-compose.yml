@@ -7,6 +7,14 @@ services:
       - "4000:27017"
     restart: always
 
+  rabbit:
+    image: "rabbitmq:4.2.4-management"
+    container_name: rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
+
   video-streaming:
     image: "video-streaming:latest"
     build:
@@ -19,11 +27,13 @@ services:
       - ./video-streaming/videos:/usr/src/app/videos:z
     ports:
       - "4001:80"
-    env_file:
-      - "./video-streaming/.env"
     environment:
       - PORT=80
+      - RABBIT=amqp://guest:guest@rabbit:5672
       - NODE_ENV=development
+    depends_on:
+      - rabbit
+    command: sh -c "npx wait-port rabbit:5672 && npm run start:dev"
     restart: no
 
 
@@ -38,14 +48,15 @@ services:
       - ./history/src:/usr/src/app/src:z
     ports:
       - "4002:80"
-    env_file:
-      - "./history/.env"
     environment:
       - PORT=80
+      - RABBIT=amqp://guest:guest@rabbit:5672
       - DBHOST=mongodb://db:27017
       - DBNAME=history
       - NODE_ENV=development
     depends_on:
-      - db      
+      - db
+      - rabbit
+    command: sh -c "npx wait-port rabbit:5672 && npm run start:dev"
     restart: "no"
 
