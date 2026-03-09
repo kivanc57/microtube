@@ -72,3 +72,19 @@ docker_run_image(){
         fi
 }
 
+
+# main functions
+run_on_local(){
+        docker_build_image  "${APP_TAG}" "${DOCKERFILE_PATH}" "${BUILD_CONTEXT}"
+        docker_run_image "${APP_NAME}" "${APP_TAG}" "${PORT}" "${PORT}"
+
+}
+
+run_on_remote(){
+        docker_login_registry "${REGISTRY_URL}" "${REGISTRY_USERNAME}" "${REGISTRY_PASSWORD}"
+        docker_build_image  "${APP_TAG}" "${DOCKERFILE_PATH}" "${BUILD_CONTEXT}"
+        docker_tag_image "${APP_TAG}" "${TARGET_IMAGE}"
+        docker_push_image "${TARGET_IMAGE}"
+        docker_run_image "${APP_NAME}" "${TARGET_IMAGE}" "${PORT}" "${PORT}"
+}
+
