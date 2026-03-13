@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-# this script is is modified according to original kubernetes documentation...
+# this script is is modified according to original kubernetes...
 
 #apt  update & install dependencies
 sudo apt-get update
@@ -20,4 +20,5 @@ sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list
 # sudo update & install kubectl
 sudo apt-get update
 sudo apt-get install -y kubectl
+kubectl version
 
